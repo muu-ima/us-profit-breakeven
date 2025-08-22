@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import ChatIcon from "./components/ChatIcon";
 import { useEffect, useState } from "react";
 import { getCheapestShipping, ShippingData } from "lib/shipping";
@@ -13,10 +13,10 @@ import {
   calculateGrossProfit,
   calculateProfitMargin,
 } from "lib/profitCalc";
-
+import type { BreakEvenResult } from "lib/profitCalc";
 import FinalResultModal from './components/FinalResultModal';
 import { calcBreakEvenUSD } from "lib/profitCalc";
-import ModeSwitch from "./components/ModeSwitch";
+import ModeSwitch, { type Mode } from "./components/ModeSwitch";
 
 // ここから型定義を追加
 type ShippingResult = {
@@ -29,6 +29,8 @@ type CategoryFeeType = {
   value: number;
   categories: string[];
 };
+
+type ShippingMode = 'auto' | 'manual';
 
 type CalcResult = {
   shippingJPY: number,
@@ -58,12 +60,21 @@ export default function Page() {
   const [selectedCategoryFee, setSelectedCategoryFee] = useState<number | "">(
     ""
   );
+
+  const [shippingMode, setShippingMode] = useState<ShippingMode>('auto');
+  const [manualShipping, setManualShipping] = useState<number | ''>('');
   const [result, setResult] = useState<ShippingResult | null>(null);
   const [calcResult, setCalcResult] = useState<CalcResult | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [mode, setmode] = useState<"breakEven" | "tariff" | "insurance">("breakEven");
-  const [beValues, setBeValues] = useState<{ breakEvenUSD: number; tariffUSD: number; insuranceUSD: number } | null>(null);
-  const EX_FEE_JPY_PER_USD = 3.3; // 両替手数料(円/1USD) 固定
+  const [mode, setMode] = useState<Mode>("breakEven");
+  const [be, setBe] = useState<BreakEvenResult | null>(null);
+
+  // 自動/手動の送料を一元化
+  const selectedShippingJPY: number | null =
+    shippingMode === 'manual'
+      ? (manualShipping === '' ? null : Number(manualShipping))
+      : (result?.price ?? null);
+
 
   // 配送料データ読み込み
   useEffect(() => {
@@ -72,124 +83,128 @@ export default function Page() {
       .then((data) => setShippingRates(data));
   }, []);
 
-  // 計算結果用のuseEffect
-  useEffect(() => {
-    if (
-      sellingPrice !== "" &&
-      costPrice !== "" &&
-      rate !== null &&
-      weight !== null &&
-      result !== null &&
-      result.price !== null &&
-      selectedCategoryFee !== ""
-    ) {
-      //配送料JPYに換算
-      const shippingJPY = result.price ?? 0;
-
-      // ここで売値の変換をする
-      const sellingPriceUSD = typeof sellingPrice === "number" ? sellingPrice : 0;
-      // 円換算は掛け算
-      const sellingPriceJPY = sellingPriceUSD * (rate ?? 0);
-      //カテゴリ手数料JPY計算
-      const categoryFeeJPY = calculateCategoryFeeUS(
-        typeof sellingPrice === "number" && rate !== null
-          ? sellingPrice * rate  // ← USD → 円 にする
-          : 0,
-        typeof selectedCategoryFee === "number" ? selectedCategoryFee : 0
-      );
-
-
-      //実費合計
-      const actualCost = calculateActualCost(
-        typeof costPrice === "number" ? costPrice : 0,
-        shippingJPY,
-        categoryFeeJPY
-      );
-      //粗利計算
-      const grossProfit = calculateGrossProfit(
-        typeof sellingPrice === "number" ? sellingPrice : 0,
-        actualCost
-      );
-      //利益率計算
-      const profitMargin = calculateProfitMargin(grossProfit,
-        typeof sellingPrice === "number" ? sellingPrice : 0
-      );
-
-      setCalcResult({
-        shippingJPY,
-        categoryFeeJPY,
-        actualCost,
-        grossProfit,
-        profitMargin,
-        method: result.method,
-        sellingPriceJPY,
-        rate
-      });
-
-    }
-  }, [sellingPrice, costPrice, rate, weight, result, selectedCategoryFee]);
-
+  // カテゴリ手数料のマスタ読み込み
   useEffect(() => {
     fetch("/data/categoryFees.json")
       .then((res) => res.json())
       .then((data) => setCategoryOptions(data));
   }, []);
 
+  // レートのログ
   useEffect(() => {
     if (rate !== null) {
       console.log(`最新為替レート：${rate}`);
     }
   }, [rate]);
 
+  // 自動計算は auto の時だけ
   useEffect(() => {
+    if (shippingMode !== 'auto') return;
     if (shippingRates && weight !== null && weight > 0) {
       const cheapest = getCheapestShipping(shippingRates, weight, dimensions);
       setResult(cheapest);
-    }
-  }, [shippingRates, weight, dimensions]);
-
-  // 追記: 逆算の自動試算（必要条件が揃ったら）
-  useEffect(() => {
-    if (
-      rate !== null &&
-      result?.price != null &&                 // shippingJPY
-      selectedCategoryFee !== "" &&
-      typeof selectedCategoryFee === "number" &&
-      typeof costPrice === "number"
-    ) {
-      const v = calcBreakEvenUSD({
-        costJPY: costPrice,
-        shippingJPY: result.price,
-        rateJPYperUSD: rate,
-        categoryFeePercent: selectedCategoryFee,
-        exchangeFeeJPYPerUSD: EX_FEE_JPY_PER_USD,
-      });
-      setBeValues(v);
     } else {
-      setBeValues(null);
+      setResult(null);
     }
-  }, [rate, result, selectedCategoryFee, costPrice]);
+  }, [shippingRates, weight, dimensions, shippingMode]);
 
-  // 追記: 表示用の選択値
-  const beUSD =
-    beValues
-      ? mode === "breakEven"
-        ? beValues.breakEvenUSD
-        : mode === "tariff"
-          ? beValues.tariffUSD
-          : beValues.insuranceUSD
-      : null;
+  // BE用のuseEffect（calcBreakEvenUSD と同期）
+  useEffect(() => {
+    const ready =
+      rate !== null &&
+      costPrice !== "" &&
+      selectedShippingJPY !== null &&
+      selectedCategoryFee !== "";
 
-  const beJPY = beUSD && rate ? Math.round(beUSD * rate) : null;
-  // const categoryFeePercent =
-  //   calcResult && sellingPrice !== "" && rate
-  //     ? (calcResult.categoryFeeJPY / (parseFloat(sellingPrice) * rate)) * 100
-  //     : 0;
+    if (!ready) {
+      setBe(null); // 計算結果をリセットして終了
+      return;      // ready === trueの時だけ、後続の計算ロジックに進む
+    }
+
+    const out = calcBreakEvenUSD({
+      costJPY: Number(costPrice),
+      shippingJPY: selectedShippingJPY,
+      rateJPYperUSD: rate!,
+      categoryFeePercent: Number(selectedCategoryFee),
+      exchangeFeeJPYPerUSD: 3.3,
+    });
+
+    // 有限かチェック
+    if (
+      !Number.isFinite(out.breakEvenUSD) ||
+      !Number.isFinite(out.dutyTotalUSD) ||
+      !Number.isFinite(out.insuranceUSD) ||
+      !Number.isFinite(out.insuranceTotalUSD)
+    ) {
+      setBe(null);
+      return;
+    }
+    setBe(out);
+  }, [costPrice, rate, selectedCategoryFee, selectedShippingJPY]);
+
+  // 計算結果用のuseEffect - 未入力は計算しない
+  useEffect(() => {
+    const ready =
+      sellingPrice !== "" &&
+      costPrice !== "" &&
+      rate !== null &&
+      weight !== null &&
+      selectedCategoryFee !== "" &&
+      selectedShippingJPY !== null;
+
+    if (!ready) {
+      setCalcResult(null);
+      return;
+    }
+
+    // ここから下は全部 number に寄せる
+    const shippingJPY: number = selectedShippingJPY;
+    const sellingPriceUSD: number = parseFloat(sellingPrice);         // 文字列を数値へ
+    const sellingPriceJPY: number = sellingPriceUSD * rate!;
+    const categoryFeeJPY: number = calculateCategoryFeeUS(
+      sellingPriceJPY,
+      Number(selectedCategoryFee)
+    );
+
+    //実費合計
+    const actualCost: number = calculateActualCost(
+      Number(costPrice),
+      shippingJPY,
+      categoryFeeJPY
+    );
+
+    const grossProfit: number = calculateGrossProfit(
+      sellingPriceUSD, actualCost
+    );
+    const profitMargin: number = calculateProfitMargin(
+      grossProfit, sellingPriceUSD
+    );
+
+    setCalcResult({
+      shippingJPY,
+      categoryFeeJPY,
+      actualCost,
+      grossProfit,
+      profitMargin,
+      method: shippingMode === 'manual' ? '手動入力' : (result?.method ?? ''),
+      sellingPriceJPY,
+      rate: rate!,
+    });
+
+  }, [
+    sellingPrice,
+    costPrice,
+    rate,
+    weight,
+    selectedCategoryFee,
+    selectedShippingJPY,   // ← 依存にこれを入れる
+    shippingMode,
+    result?.method
+  ]);
 
   const stateTaxRate = 0.0671;
   const sellingPriceNum = sellingPrice !== "" ? parseFloat(sellingPrice) : 0;
   const sellingPriceInclTax = sellingPriceNum + sellingPriceNum * stateTaxRate;
-  // const categoryFeeUSD = sellingPriceNum * (selectedCategoryFee as number / 100);
 
   const final = calcResult
     ? calculateFinalProfitDetailUS({
@@ -210,6 +225,26 @@ export default function Page() {
     rate !== null &&
     weight !== null &&
     selectedCategoryFee !== "";
+
+  // BEの表示値(モード切替対応)
+  const currentUSD = useMemo(() => {
+    if (!be) return null;
+    switch (mode) {
+      case "breakEven":
+        return be.breakEvenUSD;
+      case "tariff":
+        return be.dutyTotalUSD;
+      case "insurance":
+        return be.insuranceTotalUSD;
+      default:
+        return be.breakEvenUSD;
+    }
+  }, [be, mode]);
+
+  const currentJPY = useMemo(() => {
+    if (currentUSD == null || rate == null) return null;
+    return Math.round(currentUSD * rate);
+  }, [currentUSD, rate]);
 
   return (
     <div className="p-4 w-full max-w-7xl mx-auto flex flex-col md:flex-row md:space-x-8 space-y-8 md:space-y-0">
@@ -274,78 +309,121 @@ export default function Page() {
           )}
         </div>
 
-        <div>
-          <label className="block font-semibold mb-1">実重量 (g) </label>
-          <input
-            type="number"
-            value={weight ?? ""}
-            onChange={(e) =>
-              setWeight(e.target.value === "" ? null : Number(e.target.value))
-            }
-            placeholder="実重量"
-            className="w-full px-3 py-2 border rounded-md"
-          />
-        </div>
-        <div>
-          <label className="block font-semibold mb-1">サイズ (cm)</label>
-          <div className="grid grid-cols-3 gap-2">
-            <input
-              type="number"
-              value={dimensions.length || ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
-                  setDimensions((prev) => ({ ...prev, length: 0 }));
-                  return;
-                }
-
-                let num = Number(raw);
-                if (num < 0) num = 0;
-
-                setDimensions((prev) => ({ ...prev, length: num }));
-              }}
-              placeholder="長さ"
-              className="px-2 py-1 border rounded-md"
-            />
-            <input
-              type="number"
-              value={dimensions.width || ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
-                  setDimensions((prev) => ({ ...prev, width: 0 }));
-                  return;
-                }
-
-                let num = Number(raw);
-                if (num < 0) num = 0;
-
-                setDimensions((prev) => ({ ...prev, width: num }));
-              }}
-              placeholder="幅"
-              className="px-2 py-1 border rounded-md"
-            />
-            <input
-              type="number"
-              value={dimensions.height || ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
-                  setDimensions((prev) => ({ ...prev, height: 0 }));
-                  return;
-                }
-
-                let num = Number(raw);
-                if (num < 0) num = 0;
-
-                setDimensions((prev) => ({ ...prev, height: num }));
-              }}
-              placeholder="高さ"
-              className="px-2 py-1 border rounded-md"
-            />
+        {/* ▼ ここを “実重量” ブロックの直前に追加 */}
+        <div className="flex items-center justify-between">
+          <span className="block font-semibold">配送料モード</span>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="shippingMode"
+                value="auto"
+                checked={shippingMode === 'auto'}
+                onChange={() => setShippingMode('auto')}
+              />
+              自動計算
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="shippingMode"
+                value="manual"
+                checked={shippingMode === 'manual'}
+                onChange={() => setShippingMode('manual')}
+              />
+              手動入力
+            </label>
           </div>
         </div>
-        <div>
+
+        {/* ▼ “実重量〜サイズ” の2ブロックを fieldset で包む（manual時は無効化） */}
+        <fieldset
+          disabled={shippingMode === 'manual'}
+          className={shippingMode === 'manual' ? 'opacity-50 pointer-events-none select-none' : ''}
+        >
+          <div>
+            <label className="block font-semibold mb-1">実重量 (g) </label>
+            <input
+              type="number"
+              value={weight ?? ""}
+              onChange={(e) =>
+                setWeight(e.target.value === "" ? null : Number(e.target.value))
+              }
+              placeholder="実重量"
+              className="w-full px-3 py-2 border rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1">サイズ (cm)</label>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                type="number"
+                value={dimensions.length || ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") { setDimensions((prev) => ({ ...prev, length: 0 })); return; }
+                  let num = Number(raw);
+                  if (num < 0) num = 0;
+                  setDimensions((prev) => ({ ...prev, length: num }));
+                }}
+                placeholder="長さ"
+                className="px-2 py-1 border rounded-md"
+              />
+              <input
+                type="number"
+                value={dimensions.width || ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") { setDimensions((prev) => ({ ...prev, width: 0 })); return; }
+                  let num = Number(raw);
+                  if (num < 0) num = 0;
+                  setDimensions((prev) => ({ ...prev, width: num }));
+                }}
+                placeholder="幅"
+                className="px-2 py-1 border rounded-md"
+              />
+              <input
+                type="number"
+                value={dimensions.height || ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") { setDimensions((prev) => ({ ...prev, height: 0 })); return; }
+                  let num = Number(raw);
+                  if (num < 0) num = 0;
+                  setDimensions((prev) => ({ ...prev, height: num }));
+                }}
+                placeholder="高さ"
+                className="px-2 py-1 border rounded-md"
+              />
+            </div>
+          </div>
+        </fieldset>
+
+        {/* ▼ manual のときだけ、配送料の手動入力欄を出す（既にあれば不要） */}
+        {shippingMode === 'manual' && (
+          <div className="mt-2">
+            <label className="block font-semibold mb-1">配送料（円・手動）</label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={10}
+              value={manualShipping}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') { setManualShipping(''); return; }
+                const num = Math.max(0, Number(raw));
+                setManualShipping(Number.isFinite(num) ? num : '');
+              }}
+              placeholder="例: 1200"
+              className="w-full px-3 py-2 border rounded-md"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              ※ 手動入力時は重量/サイズ入力は無効化されます
+            </p>
+          </div>
+        )}        <div>
           <label className="block font-semibold mb-1">カテゴリ手数料 </label>
           <select
             value={selectedCategoryFee}
@@ -360,11 +438,31 @@ export default function Page() {
             ))}
           </select>
         </div>
-
+        
       </div>
       {/* 右カラム */}
       <div className="flex-1 flex flex-col space-y-4">
-        {/* 配送結果と利益結果を右側に移動する */}
+        <div className="flex items-center jusify-beween">
+          <span className="text-sm text-gray-600">表示モード</span>
+          <ModeSwitch mode={mode} onChange={setMode} />
+        </div>
+
+        {currentUSD != null ? (
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="font-medium">
+              {mode === "breakEven" ? "損益分岐(USD)" :
+                mode === "tariff" ? "関税込合計(USD)" :
+                  "保険込み合計(USD)"}:
+              {" "}{currentUSD.toFixed(2)}
+            </span>
+            {rate != null && currentJPY != null && (
+              <span className="text-gray-600">（約 {currentJPY.toLocaleString()} 円）</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-gray-500">必要な入力を埋めると自動計算されます</span>
+        )}
+
         {/* 配送結果 */}
         <div className="w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           <p>
@@ -417,42 +515,9 @@ export default function Page() {
         )}
 
       </div>
+
       {/* チャットアイコンをここで表示 */}
       <ChatIcon />
-      <div className="p-4 border rounded bg-white space-y-3">
-  <h3 className="font-bold">逆算（損益分岐点）</h3>
-  <ModeSwitch mode={mode} onChange={setmode} />
-  <div className="text-sm text-gray-600">両替手数料: {EX_FEE_JPY_PER_USD} 円/USD</div>
-  {beUSD ? (
-    <div className="space-y-1">
-      <div>売値(USD): <span className="font-semibold">${beUSD.toFixed(2)}</span></div>
-      <div>売値(JPY): <span className="font-semibold">{beJPY} 円</span></div>
-      <button
-        className="mt-2 px-3 py-2 rounded bg-blue-600 text-white"
-        onClick={() => setSellingPrice(beUSD.toFixed(2))}
-      >
-        この値を売値にセット
-      </button>
-    </div>
-  ) : (
-    <div className="text-gray-500">為替・送料・カテゴリが揃うと自動計算します</div>
-  )}
-</div>
-      <button
-        className="px-3 py-2 rounded bg-gray-200"
-        onClick={() => {
-          const r = calcBreakEvenUSD({
-            costJPY: 9000,
-            shippingJPY: 1200,
-            rateJPYperUSD: 160,
-            categoryFeePercent: 12.7,
-            exchangeFeeJPYPerUSD: 3.3,
-          });
-          console.log("仮テスト結果:", r);
-        }}
-      >
-        逆算デバッグ実行
-      </button>
 
     </div >
   );

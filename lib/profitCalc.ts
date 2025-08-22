@@ -109,9 +109,16 @@ export function calculateFinalProfitDetailUS({
 }
 
 // 追加: 関税30%、保険30%
-
 export const TARIFF_RATE = 0.30;
 export const INSURANCE_RATE = 0.30;
+
+// 戻り値の“契約”を公開して、常にこの形で返す
+export type BreakEvenResult = {
+  breakEvenUSD: number;
+  dutyTotalUSD: number;
+  insuranceUSD: number;
+  insuranceTotalUSD: number;
+};
 
 /**
  * 損益分岐点(USD)と、関税込み/保険込みを算出
@@ -126,14 +133,14 @@ export function calcBreakEvenUSD({
   shippingJPY,
   rateJPYperUSD,
   categoryFeePercent,
-  exchangeFeeJPYPerUSD = 3.3,
+  exchangeFeeJPYPerUSD = 3.3, // 為替から引く額 (円/1USD)
 }: {
   costJPY: number;
   shippingJPY: number;
   rateJPYperUSD: number;
   categoryFeePercent: number;
   exchangeFeeJPYPerUSD?: number;
-}) {
+}): BreakEvenResult {
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[calcBreakEvenUSD] input:", {
@@ -141,37 +148,46 @@ export function calcBreakEvenUSD({
     });
   }
 
-  const baseUSD = (costJPY + shippingJPY) / rateJPYperUSD;
-  const pCat = categoryFeePercent / 100; // 例: 12.7% → 0.127
-  const pFx = exchangeFeeJPYPerUSD / rateJPYperUSD; // 為替手数料を割合に変換
-  const K = pCat + pFx; // 売上に対して、差し引かれる総手数料率
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[calcBreakEvenUSD] mid:", { baseUSD, pCat, pFx, K });
-  }
-
-  if (K >= 1) {
+  // シート準拠:レート-3.3円を使う
+  const rateEff = rateJPYperUSD - exchangeFeeJPYPerUSD;
+  if (rateEff <= 0) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[calcBreakEvenUSD] K>=1 のため有限解なし");
+      console.warn("[calcBreakEvenUSD] rateEff <= 0");
     }
-    return { breakEvenUSD: Infinity, tariffUSD: Infinity, insuranceUSD: Infinity };
+    return {
+      breakEvenUSD: Infinity,
+      dutyTotalUSD: Infinity,
+      insuranceUSD: Infinity,
+      insuranceTotalUSD: Infinity,
+    };
   }
 
-  const breakEvenUSD = baseUSD / (1 - K);
+  // 1) 円コスト合算 → 実効レートでUSD化
+  const totalJPY = costJPY + shippingJPY;
+  const costUSD = totalJPY / rateEff
 
-  // 関税30%上乗せ本体
-  const tariffUSD = breakEvenUSD * (1 + TARIFF_RATE); //TARIFF_RATE = 0.30
+  // 2) カテゴリ手数料(%)をUSDコストに掛ける
+  const pCat = categoryFeePercent / 100; // 例: 12.7% → 0.127
+  const categoryFeeUSD = costUSD * pCat;
 
-  // ★保険= 「関税増分(= tariff - BE)」の30%
-  const tariffDeltaUSD = tariffUSD - breakEvenUSD;
-  const insuranceUSD = tariffDeltaUSD * INSURANCE_RATE;    // INSURANCE_RATE = 0.30
- 
-  // 保険込み合計 (表示/反映用)
-  const insuranceTotalUSD = tariffUSD + insuranceUSD;        // （参考）保険込みの合計価格
+  // 3) BE(損益分岐点, USD)
+  const breakEvenUSD = costUSD + categoryFeeUSD;
 
-   if (process.env.NODE_ENV !== "production") {
-    console.log("[calcBreakEvenUSD] output:", { breakEvenUSD, tariffUSD, insuranceUSD });
+  // 4) 関税(30%)
+  const dutyAmountUSD = breakEvenUSD * TARIFF_RATE;
+  const dutyTotalUSD = breakEvenUSD + dutyAmountUSD;   // ←関税込み合計
+
+  // 5) 保険 = 関税増分の30％
+  const insuranceUSD = dutyAmountUSD * INSURANCE_RATE;
+  const insuranceTotalUSD = dutyTotalUSD + insuranceUSD;
+
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[calcBreakEvenUSD] output:", { 
+      breakEvenUSD, dutyTotalUSD, insuranceUSD, insuranceTotalUSD });
   }
-  return { breakEvenUSD, tariffUSD, insuranceUSD, insuranceTotalUSD };
+  
+  return { breakEvenUSD, dutyTotalUSD, insuranceUSD, insuranceTotalUSD };
 }
 
 /**

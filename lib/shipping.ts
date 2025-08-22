@@ -90,14 +90,6 @@ export function getCheapestShipping(
   const fedexPrice = findPriceByWeight(data.fedex, applicableWeight);
   const emsPrice = findPriceByWeight(data.ems, actualWeight);
 
-
-    // **ここでログを出す**
-  console.log("dimensionalWeight:", dimensionalWeight);
-  console.log("applicableWeight (FedEx用):", applicableWeight);
-  console.log("smallPacketPrice:", smallPacketPrice);
-  console.log("fedexPrice:", fedexPrice);
-  console.log("emsPrice:", emsPrice);
-
   const prices = [
     { method: "small_packet_air", price: smallPacketPrice },
     { method: "fedex", price: fedexPrice },
