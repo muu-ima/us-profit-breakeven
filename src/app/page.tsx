@@ -458,26 +458,76 @@ export default function Page() {
       </div>
       {/* 右カラム */}
       <div className="flex-1 flex flex-col space-y-4">
-        <div className="flex items-center jusify-beween">
+        <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">表示モード</span>
           <ModeSwitch mode={mode} onChange={setMode} />
         </div>
 
         {currentUSD != null ? (
-          <div className="flex flex-wrap items-baseline gap-2">
-            <span className="font-medium">
-              {mode === "breakEven" ? "損益分岐(USD)" :
-                mode === "tariff" ? "関税込合計(USD)" :
-                  "保険込み合計(USD)"}:
-              {" "}{currentUSD.toFixed(2)}
-            </span>
+          <motion.div
+            className="flex flex-wrap items-baseline gap-2 sm:gap-3"
+            initial={{ opacity: 0, y: 2 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            aria-live="polite"
+          >
+            {/* タイトル：モード切替時に控えめスライド＆フェード */}
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={mode}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ type: "spring", stiffness: 320, damping: 24, mass: 0.5 }}
+                className="text-xl sm:text-2xl font-semibold tracking-tight
+                   text-gray-900 dark:text-gray-100"
+              >
+                {mode === "breakEven"
+                  ? "損益分岐(USD)"
+                  : mode === "tariff"
+                    ? "関税込合計(USD)"
+                    : "保険込み合計(USD)"}:
+              </motion.span>
+            </AnimatePresence>
+
+            {/* USD額：更新時にごく軽いバウンス＆フェード */}
+            <AnimatePresence mode="popLayout">
+              <motion.span
+                key={currentUSD.toFixed(2)}
+                initial={{ opacity: 0, y: 2, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -2, scale: 0.995 }}
+                transition={{ type: "spring", stiffness: 480, damping: 20 }}
+                className="tabular-nums text-2xl sm:text-3xl font-semibold
+                   text-gray-900 dark:text-gray-100"
+              >
+                {" "}{currentUSD.toFixed(2)}
+              </motion.span>
+            </AnimatePresence>
+
+            {/* 円換算：ふわっと控えめに表示 */}
             {rate != null && currentJPY != null && (
-              <span className="text-gray-600">（約 {currentJPY.toLocaleString()} 円）</span>
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={currentJPY}
+                  initial={{ opacity: 0, y: 3 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -3 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  className="text-sm sm:text-base text-gray-600
+                     bg-gray-50 dark:bg-white/5
+                     rounded-md px-2.5 py-1"
+                >
+                  （約 {currentJPY.toLocaleString()} 円）
+                </motion.span>
+              </AnimatePresence>
             )}
-          </div>
+          </motion.div>
         ) : (
           <span className="text-gray-500">必要な入力を埋めると自動計算されます</span>
         )}
+
+
 
         {/* 配送結果 */}
         <div className="w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
