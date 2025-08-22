@@ -17,6 +17,8 @@ import type { BreakEvenResult } from "lib/profitCalc";
 import FinalResultModal from './components/FinalResultModal';
 import { calcBreakEvenUSD } from "lib/profitCalc";
 import ModeSwitch, { type Mode } from "./components/ModeSwitch";
+import { AnimatePresence, motion } from "framer-motion";
+
 
 // ここから型定義を追加
 type ShippingResult = {
@@ -308,122 +310,208 @@ export default function Page() {
             <p>概算円価格：約 {Math.round(parseFloat(sellingPrice) * rate)} 円</p>
           )}
         </div>
-
-        {/* ▼ ここを “実重量” ブロックの直前に追加 */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-0">
           <span className="block font-semibold">配送料モード</span>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="shippingMode"
-                value="auto"
-                checked={shippingMode === 'auto'}
-                onChange={() => setShippingMode('auto')}
-              />
-              自動計算
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="shippingMode"
-                value="manual"
-                checked={shippingMode === 'manual'}
-                onChange={() => setShippingMode('manual')}
-              />
-              手動入力
-            </label>
-          </div>
-        </div>
-
-        {/* ▼ “実重量〜サイズ” の2ブロックを fieldset で包む（manual時は無効化） */}
-        <fieldset
-          disabled={shippingMode === 'manual'}
-          className={shippingMode === 'manual' ? 'opacity-50 pointer-events-none select-none' : ''}
-        >
-          <div>
-            <label className="block font-semibold mb-1">実重量 (g) </label>
-            <input
-              type="number"
-              value={weight ?? ""}
-              onChange={(e) =>
-                setWeight(e.target.value === "" ? null : Number(e.target.value))
-              }
-              placeholder="実重量"
-              className="w-full px-3 py-2 border rounded-md"
+          <button
+            type="button"
+            role="switch"
+            aria-checked={shippingMode === "manual"}
+            onClick={() =>
+              setShippingMode((m) => (m === "auto" ? "manual" : "auto"))
+            }
+            className="relative inline-flex items-center h-9 w-36 rounded-full bg-gray-200 transition"
+          >
+            {/* ノブ */}
+            <motion.span
+              layout
+              className="absolute h-7 w-7 rounded-full bg-white shadow"
+              style={{ left: 4, top: 4 }}
+              animate={{ x: shippingMode === "manual" ? 96 : 0 }}
+              transition={{ type: "spring", stiffness: 350, damping: 28 }}
             />
-          </div>
+            {/* ラベル */}
+            <span
+              className={`w-1/2 text-center text-sm transition ${shippingMode === "auto" ? "font-semibold text-gray-900" : "text-gray-500"
+                }`}
+            >
+              自動
+            </span>
+            <span
+              className={`w-1/2 text-center text-sm transition ${shippingMode === "manual" ? "font-semibold text-gray-900" : "text-gray-500"
+                }`}
+            >
+              手動
+            </span>
+          </button>
+        </div>
+        {/* ▼ 自動フォーム or 手動フォーム（アンマウントで隠す） */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={shippingMode}                 // "auto" or "manual"
+            initial={{ opacity: 0, y: -12, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: 12, height: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            style={{ overflow: "hidden", willChange: "opacity, transform, height" }}
+          >
+            {shippingMode === "auto" ? (
+              <fieldset>
+                {/* 自動計算：実重量 */}
+                <div className="mt-3">
+                  <label className="block font-semibold mb-1">実重量 (g)</label>
+                  <input
+                    type="number"
+                    value={weight ?? ""}
+                    onChange={(e) =>
+                      setWeight(e.target.value === "" ? null : Number(e.target.value))
+                    }
+                    placeholder="実重量"
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
 
-          <div>
-            <label className="block font-semibold mb-1">サイズ (cm)</label>
-            <div className="grid grid-cols-3 gap-2">
-              <input
-                type="number"
-                value={dimensions.length || ""}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") { setDimensions((prev) => ({ ...prev, length: 0 })); return; }
-                  let num = Number(raw);
-                  if (num < 0) num = 0;
-                  setDimensions((prev) => ({ ...prev, length: num }));
-                }}
-                placeholder="長さ"
-                className="px-2 py-1 border rounded-md"
-              />
-              <input
-                type="number"
-                value={dimensions.width || ""}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") { setDimensions((prev) => ({ ...prev, width: 0 })); return; }
-                  let num = Number(raw);
-                  if (num < 0) num = 0;
-                  setDimensions((prev) => ({ ...prev, width: num }));
-                }}
-                placeholder="幅"
-                className="px-2 py-1 border rounded-md"
-              />
-              <input
-                type="number"
-                value={dimensions.height || ""}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") { setDimensions((prev) => ({ ...prev, height: 0 })); return; }
-                  let num = Number(raw);
-                  if (num < 0) num = 0;
-                  setDimensions((prev) => ({ ...prev, height: num }));
-                }}
-                placeholder="高さ"
-                className="px-2 py-1 border rounded-md"
-              />
-            </div>
-          </div>
-        </fieldset>
+                {/* 自動計算：サイズ */}
+                <div className="mt-3">
+                  <label className="block font-semibold mb-1">サイズ (cm)</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input
+                      type="number"
+                      value={dimensions.length || ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") { setDimensions((p) => ({ ...p, length: 0 })); return; }
+                        const num = Math.max(0, Number(raw));
+                        setDimensions((p) => ({ ...p, length: num }));
+                      }}
+                      placeholder="長さ"
+                      className="px-2 py-1 border rounded-md"
+                    />
+                    <input
+                      type="number"
+                      value={dimensions.width || ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") { setDimensions((p) => ({ ...p, width: 0 })); return; }
+                        const num = Math.max(0, Number(raw));
+                        setDimensions((p) => ({ ...p, width: num }));
+                      }}
+                      placeholder="幅"
+                      className="px-2 py-1 border rounded-md"
+                    />
+                    <input
+                      type="number"
+                      value={dimensions.height || ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") { setDimensions((p) => ({ ...p, height: 0 })); return; }
+                        const num = Math.max(0, Number(raw));
+                        setDimensions((p) => ({ ...p, height: num }));
+                      }}
+                      placeholder="高さ"
+                      className="px-2 py-1 border rounded-md"
+                    />
+                  </div>
+                </div>
+              </fieldset>
+            ) : (
+              <div className="mt-3">
+                {/* 手動入力：配送料（円） */}
+                <label className="block font-semibold mb-1">配送料（円・手動）</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={10}
+                  value={manualShipping}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") { setManualShipping(""); return; }
+                    const num = Math.max(0, Number(raw));
+                    setManualShipping(Number.isFinite(num) ? num : "");
+                  }}
+                  placeholder="例: 1200"
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ※ 手動入力時は重量/サイズは非表示になります
+                </p>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
 
-        {/* ▼ manual のときだけ、配送料の手動入力欄を出す（既にあれば不要） */}
-        {shippingMode === 'manual' && (
-          <div className="mt-2">
-            <label className="block font-semibold mb-1">配送料（円・手動）</label>
+        {/* <div>
+          <label className="block font-semibold mb-1">実重量 (g) </label>
+          <input
+            type="number"
+            value={weight ?? ""}
+            onChange={(e) =>
+              setWeight(e.target.value === "" ? null : Number(e.target.value))
+            }
+            placeholder="実重量"
+            className="w-full px-3 py-2 border rounded-md"
+          />
+        </div>
+        <div>
+          <label className="block font-semibold mb-1">サイズ (cm)</label>
+          <div className="grid grid-cols-3 gap-2">
             <input
               type="number"
-              inputMode="numeric"
-              min={0}
-              step={10}
-              value={manualShipping}
+              value={dimensions.length || ""}
               onChange={(e) => {
                 const raw = e.target.value;
-                if (raw === '') { setManualShipping(''); return; }
-                const num = Math.max(0, Number(raw));
-                setManualShipping(Number.isFinite(num) ? num : '');
+                if (raw === "") {
+                  setDimensions((prev) => ({ ...prev, length: 0 }));
+                  return;
+                }
+
+                let num = Number(raw);
+                if (num < 0) num = 0;
+
+                setDimensions((prev) => ({ ...prev, length: num }));
               }}
-              placeholder="例: 1200"
-              className="w-full px-3 py-2 border rounded-md"
+              placeholder="長さ"
+              className="px-2 py-1 border rounded-md"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              ※ 手動入力時は重量/サイズ入力は無効化されます
-            </p>
+            <input
+              type="number"
+              value={dimensions.width || ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  setDimensions((prev) => ({ ...prev, width: 0 }));
+                  return;
+                }
+
+                let num = Number(raw);
+                if (num < 0) num = 0;
+
+                setDimensions((prev) => ({ ...prev, width: num }));
+              }}
+              placeholder="幅"
+              className="px-2 py-1 border rounded-md"
+            />
+            <input
+              type="number"
+              value={dimensions.height || ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  setDimensions((prev) => ({ ...prev, height: 0 }));
+                  return;
+                }
+
+                let num = Number(raw);
+                if (num < 0) num = 0;
+
+                setDimensions((prev) => ({ ...prev, height: num }));
+              }}
+              placeholder="高さ"
+              className="px-2 py-1 border rounded-md"
+            />
           </div>
-        )}        <div>
+        </div> */}
+        <div>
           <label className="block font-semibold mb-1">カテゴリ手数料 </label>
           <select
             value={selectedCategoryFee}
@@ -438,7 +526,6 @@ export default function Page() {
             ))}
           </select>
         </div>
-        
       </div>
       {/* 右カラム */}
       <div className="flex-1 flex flex-col space-y-4">
