@@ -280,7 +280,7 @@ export default function Page() {
             className="w-full px-3 py-2 border rounded-md"
           />
         </div>
-        <div>
+        {/* <div>
           <label className="block font-semibold mb-1">売値 (＄)</label>
           <input
             type="text"
@@ -309,7 +309,7 @@ export default function Page() {
           {rate !== null && sellingPrice !== "" && (
             <p>概算円価格：約 {Math.round(parseFloat(sellingPrice) * rate)} 円</p>
           )}
-        </div>
+        </div> */}
         <div className="flex items-center justify-between mb-0">
           <span className="block font-semibold">配送料モード</span>
           <button
@@ -440,77 +440,6 @@ export default function Page() {
           </motion.div>
         </AnimatePresence>
 
-        {/* <div>
-          <label className="block font-semibold mb-1">実重量 (g) </label>
-          <input
-            type="number"
-            value={weight ?? ""}
-            onChange={(e) =>
-              setWeight(e.target.value === "" ? null : Number(e.target.value))
-            }
-            placeholder="実重量"
-            className="w-full px-3 py-2 border rounded-md"
-          />
-        </div>
-        <div>
-          <label className="block font-semibold mb-1">サイズ (cm)</label>
-          <div className="grid grid-cols-3 gap-2">
-            <input
-              type="number"
-              value={dimensions.length || ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
-                  setDimensions((prev) => ({ ...prev, length: 0 }));
-                  return;
-                }
-
-                let num = Number(raw);
-                if (num < 0) num = 0;
-
-                setDimensions((prev) => ({ ...prev, length: num }));
-              }}
-              placeholder="長さ"
-              className="px-2 py-1 border rounded-md"
-            />
-            <input
-              type="number"
-              value={dimensions.width || ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
-                  setDimensions((prev) => ({ ...prev, width: 0 }));
-                  return;
-                }
-
-                let num = Number(raw);
-                if (num < 0) num = 0;
-
-                setDimensions((prev) => ({ ...prev, width: num }));
-              }}
-              placeholder="幅"
-              className="px-2 py-1 border rounded-md"
-            />
-            <input
-              type="number"
-              value={dimensions.height || ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
-                  setDimensions((prev) => ({ ...prev, height: 0 }));
-                  return;
-                }
-
-                let num = Number(raw);
-                if (num < 0) num = 0;
-
-                setDimensions((prev) => ({ ...prev, height: num }));
-              }}
-              placeholder="高さ"
-              className="px-2 py-1 border rounded-md"
-            />
-          </div>
-        </div> */}
         <div>
           <label className="block font-semibold mb-1">カテゴリ手数料 </label>
           <select
@@ -581,14 +510,14 @@ export default function Page() {
             calcResult={calcResult}
           />
         )}
-        <button
+        {/* <button
           onClick={() => setIsModalOpen(true)}
           disabled={!isEnabled}
           className={`btn-primary ${isEnabled ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer" : "bg-gray-400 cursor-not-allowed text-gray-200"}
            px-8 py-4 text-lg rounded-full transition-colors duration-300`}
         >
           最終利益の詳細を見る
-        </button>
+        </button> */}
 
         {isModalOpen && final && (
           <FinalResultModal
