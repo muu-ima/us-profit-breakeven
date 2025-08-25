@@ -459,7 +459,7 @@ export default function Page() {
       {/* 右カラム */}
       <div className="flex-1 flex flex-col space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">表示モード</span>
+          <span className="block font-semibold text-gray-600">表示モード</span>
           <ModeSwitch mode={mode} onChange={setMode} />
         </div>
 
