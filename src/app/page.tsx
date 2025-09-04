@@ -70,6 +70,8 @@ export default function Page() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("breakEven");
   const [be, setBe] = useState<BreakEvenResult | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   // 自動/手動の送料を一元化
   const selectedShippingJPY: number | null =
@@ -463,16 +465,16 @@ export default function Page() {
           <ModeSwitch mode={mode} onChange={setMode} />
         </div>
 
-        {currentUSD != null ? (
+        {hydrated && (currentUSD != null ? (
           <motion.div
             className="flex flex-wrap items-baseline gap-2 sm:gap-3"
-            initial={{ opacity: 0, y: 2 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
             aria-live="polite"
           >
             {/* タイトル：モード切替時に控えめスライド＆フェード */}
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" initial={false}>
               <motion.span
                 key={mode}
                 initial={{ opacity: 0, y: 4 }}
@@ -491,7 +493,7 @@ export default function Page() {
             </AnimatePresence>
 
             {/* USD額：更新時にごく軽いバウンス＆フェード */}
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="popLayout" initial={false}>
               <motion.span
                 key={currentUSD.toFixed(2)}
                 initial={{ opacity: 0, y: 2, scale: 0.985 }}
@@ -507,7 +509,7 @@ export default function Page() {
 
             {/* 円換算：ふわっと控えめに表示 */}
             {rate != null && currentJPY != null && (
-              <AnimatePresence mode="wait">
+              <AnimatePresence mode="wait" initial={false}>
                 <motion.span
                   key={currentJPY}
                   initial={{ opacity: 0, y: 3 }}
@@ -524,8 +526,8 @@ export default function Page() {
             )}
           </motion.div>
         ) : (
-          <span className="text-gray-500">必要な入力を埋めると自動計算されます</span>
-        )}
+           <span className="text-gray-500">必要な入力を埋めると自動計算されます</span>
+        ))}
 
 
 
