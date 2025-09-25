@@ -1,28 +1,34 @@
-// src/app/layout.tsx
-import './globals.css';
-import type { Metadata } from 'next';
-import Header from '@/app/components/Header';
-import Footer from '@/app/components/Footer';
+// app/layout.tsx
+import "./globals.css";
+import type { Metadata } from "next";
+import Header from "@/app/components/Header";
+import Footer from "@/app/components/Footer";
 
 export const metadata: Metadata = {
-  title: '',
-  description: 'Calc-US / Calc-UK / 管理システムの共通メニュー',
+  title: "Shopify-BE",
+  description: "計算アプリ＆管理アプリの共通メニュー",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body className="bg-zinc-100 text-zinc-900 flex min-h-screen flex-col">
-        {/* 共通ヘッダー（中央展開メニュー付き） */}
-        <Header />
+      <body className="min-h-screen bg-zinc-100 text-zinc-900 flex flex-col">
+        {/* 高さ固定でブレさせない */}
+        <div className="h-16 shrink-0">
+          <Header />
+        </div>
 
-        {/* 各ページが入るメイン領域 */}
-        <main className="flex-1 mx-auto max-w-7xl p-6">
-          {children}
+        {/* ★ 幅はここだけで管理（page では container/max-w を使わない） */}
+        <main className="flex-1">
+          <div className="mx-auto max-w-7xl px-6 w-full">
+            {children}
+          </div>
         </main>
 
-        {/* 共通フッター */}
-        <Footer />
+        {/* 高さ固定でブレさせない */}
+        <div className="h-12 shrink-0">
+          <Footer />
+        </div>
       </body>
     </html>
   );
