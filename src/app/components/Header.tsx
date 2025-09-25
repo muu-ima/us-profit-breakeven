@@ -38,7 +38,7 @@ const calcUS: LinkItem[] = [
     },
     {
         label: '利益計算 (US)',
-        href: 'https://enyukari.capoo.jp/profit-calc/reverse/',
+        href: 'https://enyukari.capoo.jp/profit-calc/us-calc/',
         desc: 'US用の利益計算を行い、詳細な数値を確認できます。',
     },
     {
