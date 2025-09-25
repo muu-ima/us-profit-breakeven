@@ -5,7 +5,7 @@ import Header from "@/app/components/Header";
 import Footer from "@/app/components/Footer";
 
 export const metadata: Metadata = {
-  title: "Shopify-BE",
+  title: "US-BE",
   description: "計算アプリ＆管理アプリの共通メニュー",
 };
 

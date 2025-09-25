@@ -164,6 +164,16 @@ export default function Header() {
                     <nav aria-label="メイン" className="hidden md:block">
                         <ul className="flex gap-8">
                             <li>
+                                <Link
+                                    href="https://enyukari.capoo.jp/profit-calc/"
+                                    className="inline-flex item-center px-4 py-2 rounded-md font-medium transition-colors duration-200
+                   hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none
+                   focus:ring-2 focus:ring-indigo-400"
+                                >
+                                    Home
+                                </Link>
+                            </li>
+                            <li>
                                 <button
                                     className="px-4 py-2 rounded-md cursor-pointer font-medium 
                                                 transition-colors duration-200
@@ -236,6 +246,16 @@ export default function Header() {
                         </div>
 
                         <div className="overflow-auto p-3 space-y-3">
+                            {/* ← ここに Home を先頭追加 */}
+                            <a
+                                href="https://enyukari.capoo.jp/profit-calc/"
+                                className="block rounded-md border p-3 hover:border-indigo-300 hover:bg-indigo-50/40"
+                                onClick={() => setMobileOpen(false)}
+                            >
+                                <div className="font-semibold">Home</div>
+                                <p className="text-sm text-zinc-500 mt-1">トップページへ戻る</p>
+                            </a>
+
                             {(['calc-us', 'calc-uk', 'mgmt'] as const).map((key) => (
                                 <details key={key} className="rounded-lg border">
                                     <summary className="cursor-pointer select-none px-4 py-3 font-medium">
