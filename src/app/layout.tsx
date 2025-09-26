@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* ★ 幅はここだけで管理（page では container/max-w を使わない） */}
-        <main className="flex-1">
+        <main className="py-6">
           <div className="mx-auto max-w-7xl px-6 w-full">
             {children}
           </div>
