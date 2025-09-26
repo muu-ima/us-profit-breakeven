@@ -356,7 +356,7 @@ export default function Page() {
             </button>
           </div>
           {/* ▼ 自動フォーム or 手動フォーム（アンマウントで隠す） */}
-          <div className="mt-2 rounded-lg p-3 min-h-[180px]">
+          <div className="mt-2 rounded-lg p-3 min-h-[200px]">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={shippingMode}                 // "auto" or "manual"
@@ -469,7 +469,7 @@ export default function Page() {
           </div>
         </div>
         {/* 右カラム */}
-        <div className="flex-1 flex flex-col space-y-4">
+        <div className="flex-1 flex flex-col space-y-4 mt-3 md:0">
           <div className="flex items-center justify-between">
             <span className="block font-semibold text-gray-600">表示モード</span>
             <ModeSwitch mode={mode} onChange={setMode} />
